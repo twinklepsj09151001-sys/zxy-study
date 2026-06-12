@@ -1,0 +1,290 @@
+
+<style>
+  .steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.75rem}
+  .sb{font-size:13px;padding:5px 13px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer}
+  .sb.on{background:var(--color-background-secondary);color:var(--color-text-primary);font-weight:500}
+  .desc{font-size:13px;color:var(--color-text-secondary);line-height:1.8;margin-bottom:.5rem;min-height:64px}
+  .desc strong{color:var(--color-text-primary);font-weight:500}
+  .ptable{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.5rem}
+  .ptag{font-size:12px;font-family:var(--font-mono);padding:3px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)}
+  .ptag.red{border-color:#E24B4A;color:#A32D2D;background:#FCEBEB}
+  .ptag.green{border-color:#1D9E75;color:#0F6E56;background:#E1F5EE}
+  .ptag.blue{border-color:#378ADD;color:#185FA5;background:#E6F1FB}
+  .ptag.amber{border-color:#EF9F27;color:#854F0B;background:#FAEEDA}
+  @media(prefers-color-scheme:dark){
+    .ptag.red{background:#501313;color:#F7C1C1;border-color:#E24B4A}
+    .ptag.green{background:#04342C;color:#9FE1CB;border-color:#1D9E75}
+    .ptag.blue{background:#042C53;color:#B5D4F4;border-color:#378ADD}
+    .ptag.amber{background:#412402;color:#FAC775;border-color:#EF9F27}
+  }
+</style>
+
+<div style="padding:.5rem 0 0">
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">점에서 선, 선에서 면으로 안장면이 완성되는 과정 시각화</h2>
+<div class="steps">
+  <button class="sb on" onclick="go(0,this)">① 9개 점</button>
+  <button class="sb" onclick="go(1,this)">② Y 방향으로 연결</button>
+  <button class="sb" onclick="go(2,this)">③ X 방향으로도 연결</button>
+  <button class="sb" onclick="go(3,this)">④ 격자 완성</button>
+  <button class="sb" onclick="go(4,this)">⑤ 면으로 채우기</button>
+  <button class="sb" onclick="go(5,this)">⑥ 안장면 완성</button>
+</div>
+<div id="desc" class="desc"></div>
+<div class="ptable" id="ptable"></div>
+<canvas id="cv" width="640" height="380" role="img" aria-label="점에서 안장면 완성까지 단계별 시각화" style="width:100%;border-radius:8px;background:var(--color-background-secondary)"></canvas>
+</div>
+
+<script>
+const descs=[
+  '먼저 X와 Y를 −2, 0, 2 세 가지 값으로 정해서 <strong>9개 점</strong>을 찍습니다. 각 점의 Z값은 Z=XY로 계산합니다. 빨간 점이 우리가 아는 <strong>(2, 3, 6)</strong>과 같은 종류입니다. 점들이 바닥이 아니라 <strong>높이가 다 다르게</strong> 떠 있는 것을 보세요.',
+  'X값이 같은 점들끼리 <strong>Y 방향으로 선을 연결</strong>합니다. X=2로 고정하면 Z=2Y가 되므로 직선이 됩니다. X=−2로 고정하면 Z=−2Y, 반대 방향 직선입니다. X=0이면 Z=0이라 수평선이 됩니다. <strong>각 선이 직선</strong>인 것을 확인하세요!',
+  'Y값이 같은 점들끼리 <strong>X 방향으로도 선을 연결</strong>합니다. Y=2로 고정하면 Z=2X, Y=−2이면 Z=−2X, 직선들입니다. 이제 <strong>두 방향 직선이 격자처럼 교차</strong>합니다.',
+  '두 방향 선이 모두 그려지면 <strong>격자(그물망)</strong>가 완성됩니다. 이 그물망이 바로 안장면의 뼈대입니다. 격자 하나하나는 모두 직선들로 이루어져 있지만, 전체 모양은 <strong>휘어진 곡면</strong>처럼 보입니다.',
+  '격자의 각 칸을 <strong>색으로 채우기</strong> 시작합니다. 높은 곳은 따뜻한 색(빨강), 낮은 곳은 차가운 색(파랑)으로 칠합니다. 격자 칸이 작을수록 표면이 더 매끄러워집니다.',
+  '격자를 무한히 촘촘하게 만들면 <strong>매끄러운 안장면</strong>이 완성됩니다. 빨간 점 <strong>(2, 3, 6)</strong>이 이 곡면 위에 정확히 올라가 있습니다. 결국 곡면은 <strong>수많은 점과 선이 빈틈없이 모인 것</strong>입니다.'
+];
+
+const ptables=[
+  `<span class="ptag green">(−2,−2, 4)</span><span class="ptag green">(0,−2, 0)</span><span class="ptag amber">(2,−2,−4)</span><span class="ptag green">(−2, 0, 0)</span><span class="ptag">(0, 0, 0)</span><span class="ptag green">(2, 0, 0)</span><span class="ptag amber">(−2, 2,−4)</span><span class="ptag">(0, 2, 0)</span><span class="ptag red">(2, 2, 4)</span>`,
+  `<span class="ptag blue">X=2 고정 → Z=2Y (직선)</span><span class="ptag">(X=0 → Z=0 수평)</span><span class="ptag blue">X=−2 고정 → Z=−2Y</span>`,
+  `<span class="ptag blue">Y=2 고정 → Z=2X (직선)</span><span class="ptag">(Y=0 → Z=0 수평)</span><span class="ptag blue">Y=−2 고정 → Z=−2X</span>`,
+  `<span class="ptag">격자 = X방향 직선 + Y방향 직선의 교차</span>`,
+  `<span class="ptag red">높은 곳 (Z>0) = 따뜻한 색</span><span class="ptag blue">낮은 곳 (Z<0) = 차가운 색</span>`,
+  `<span class="ptag red">(2, 3, 6) 이 곡면 위에 있습니다</span>`
+];
+
+let cur=0;
+function go(i,btn){
+  cur=i;
+  document.querySelectorAll('.sb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('desc').innerHTML=descs[i];
+  document.getElementById('ptable').innerHTML=ptables[i];
+  draw(i);
+}
+
+const ROT=25*Math.PI/180, TILT=32*Math.PI/180;
+const SC=58, OX=310, OY=210;
+
+function proj(x,y,z){
+  const px=x*Math.cos(ROT)-y*Math.sin(ROT);
+  const py=x*Math.sin(ROT)+y*Math.cos(ROT);
+  return[OX+px*SC, OY+(py*Math.sin(TILT)-z*Math.cos(TILT))*SC];
+}
+
+function drawAxes(ctx,isDark){
+  const ac=isDark?'rgba(200,200,200,0.35)':'rgba(80,80,80,0.28)';
+  const lc=isDark?'#999':'#666';
+  [[[3.2,0,0],'X'],[[0,3.2,0],'Y'],[[0,0,2.8],'Z']].forEach(([v,l])=>{
+    const p0=proj(0,0,0),p1=proj(...v);
+    ctx.beginPath();ctx.moveTo(...p0);ctx.lineTo(...p1);
+    ctx.strokeStyle=ac;ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle=lc;ctx.font='bold 13px sans-serif';ctx.fillText(l,p1[0]+4,p1[1]+4);
+  });
+  const nc=isDark?'rgba(180,180,180,0.3)':'rgba(80,80,80,0.25)';
+  ctx.fillStyle=nc;ctx.font='11px sans-serif';
+  [-2,2].forEach(v=>{
+    const px=proj(v,0,0),py=proj(0,v,0),pz=proj(0,0,v);
+    ctx.fillText(v,px[0]-4,px[1]+14);
+    ctx.fillText(v,py[0]+4,py[1]+4);
+    if(v>0) ctx.fillText(v,pz[0]+4,pz[1]);
+  });
+}
+
+function drawFloorGrid(ctx,isDark){
+  const gc=isDark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)';
+  for(let i=-3;i<=3;i++){
+    ctx.beginPath();
+    ctx.moveTo(...proj(i,-3,0));ctx.lineTo(...proj(i,3,0));
+    ctx.strokeStyle=gc;ctx.lineWidth=0.5;ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(...proj(-3,i,0));ctx.lineTo(...proj(3,i,0));
+    ctx.stroke();
+  }
+}
+
+const KEY_PTS=[
+  {x:-2,y:-2},{x:0,y:-2},{x:2,y:-2},
+  {x:-2,y:0}, {x:0,y:0}, {x:2,y:0},
+  {x:-2,y:2}, {x:0,y:2}, {x:2,y:2}
+];
+
+function ptColor(x,y,isDark){
+  const z=x*y;
+  if(z>0) return isDark?'#1D9E75':'#0F6E56';
+  if(z<0) return isDark?'#D85A30':'#993C1D';
+  return isDark?'#888780':'#5F5E5A';
+}
+
+function drawDots(ctx,isDark,size,showLabel){
+  for(const {x,y} of KEY_PTS){
+    const z=x*y;
+    const p=proj(x,y,z);
+    const c=ptColor(x,y,isDark);
+    ctx.beginPath();ctx.arc(p[0],p[1],size,0,Math.PI*2);
+    ctx.fillStyle=c;ctx.fill();
+    ctx.strokeStyle=isDark?'rgba(0,0,0,0.4)':'rgba(255,255,255,0.7)';ctx.lineWidth=1.5;ctx.stroke();
+    if(showLabel){
+      ctx.fillStyle=c;ctx.font='bold 11px sans-serif';
+      ctx.fillText(`(${x},${y},${z})`,p[0]+7,p[1]-5);
+    }
+    const pf=proj(x,y,0);
+    ctx.beginPath();ctx.moveTo(...pf);ctx.lineTo(...p);
+    ctx.strokeStyle=isDark?'rgba(200,200,200,0.12)':'rgba(0,0,0,0.1)';
+    ctx.lineWidth=0.8;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+  }
+}
+
+function drawYLines(ctx,isDark){
+  const xVals=[-2,0,2];
+  const colors=[isDark?'#D85A30':'#993C1D', isDark?'#888':'#aaa', isDark?'#378ADD':'#185FA5'];
+  const yRange=[-2,-1.5,-1,-0.5,0,0.5,1,1.5,2];
+  xVals.forEach((x,i)=>{
+    ctx.beginPath();
+    let first=true;
+    for(const y of yRange){
+      const p=proj(x,y,x*y);
+      if(first){ctx.moveTo(...p);first=false;}else ctx.lineTo(...p);
+    }
+    ctx.strokeStyle=colors[i];ctx.lineWidth=2.5;ctx.stroke();
+    const pe=proj(x,2.2,x*2.2);
+    ctx.fillStyle=colors[i];ctx.font='bold 11px sans-serif';
+    ctx.fillText(`X=${x}`,pe[0]+4,pe[1]);
+  });
+}
+
+function drawXLines(ctx,isDark){
+  const yVals=[-2,0,2];
+  const colors=[isDark?'#7F77DD':'#534AB7', isDark?'#888':'#aaa', isDark?'#EF9F27':'#BA7517'];
+  const xRange=[-2,-1.5,-1,-0.5,0,0.5,1,1.5,2];
+  yVals.forEach((y,i)=>{
+    ctx.beginPath();
+    let first=true;
+    for(const x of xRange){
+      const p=proj(x,y,x*y);
+      if(first){ctx.moveTo(...p);first=false;}else ctx.lineTo(...p);
+    }
+    ctx.strokeStyle=colors[i];ctx.lineWidth=2.5;ctx.stroke();
+    const pe=proj(2.2,y,2.2*y);
+    ctx.fillStyle=colors[i];ctx.font='bold 11px sans-serif';
+    ctx.fillText(`Y=${y}`,pe[0]+4,pe[1]);
+  });
+}
+
+function drawGridLines(ctx,isDark,N){
+  const rng=2.5,step=rng*2/N;
+  const lc=isDark?'rgba(150,150,150,0.25)':'rgba(80,80,80,0.2)';
+  for(let i=0;i<=N;i++){
+    const x=-rng+i*step;
+    ctx.beginPath();
+    let first=true;
+    for(let j=0;j<=N;j++){
+      const y=-rng+j*step;
+      const p=proj(x,y,x*y);
+      if(first){ctx.moveTo(...p);first=false;}else ctx.lineTo(...p);
+    }
+    ctx.strokeStyle=lc;ctx.lineWidth=0.6;ctx.stroke();
+  }
+  for(let j=0;j<=N;j++){
+    const y=-rng+j*step;
+    ctx.beginPath();
+    let first=true;
+    for(let i=0;i<=N;i++){
+      const x=-rng+i*step;
+      const p=proj(x,y,x*y);
+      if(first){ctx.moveTo(...p);first=false;}else ctx.lineTo(...p);
+    }
+    ctx.strokeStyle=lc;ctx.lineWidth=0.6;ctx.stroke();
+  }
+}
+
+function drawFilledSurface(ctx,isDark,N){
+  const rng=2.5,step=rng*2/N;
+  const cells=[];
+  for(let i=0;i<N;i++) for(let j=0;j<N;j++){
+    const x0=-rng+i*step,x1=x0+step,y0=-rng+j*step,y1=y0+step;
+    const zs=[x0*y0,x1*y0,x0*y1,x1*y1];
+    cells.push({x0,x1,y0,y1,zs,avgZ:zs.reduce((a,b)=>a+b)/4});
+  }
+  cells.sort((a,b)=>{
+    const pa=proj((a.x0+a.x1)/2,(a.y0+a.y1)/2,a.avgZ);
+    const pb=proj((b.x0+b.x1)/2,(b.y0+b.y1)/2,b.avgZ);
+    return(pa[1]+pa[0]*0.3)-(pb[1]+pb[0]*0.3);
+  });
+  const allZ=cells.map(c=>c.avgZ);
+  const zmin=Math.min(...allZ),zmax=Math.max(...allZ);
+  for(const c of cells){
+    const t=(c.avgZ-zmin)/(zmax-zmin+0.001);
+    const r=Math.round(60+t*160),g=Math.round(110+(0.5-Math.abs(t-0.5))*80),b=Math.round(200-t*140);
+    const p00=proj(c.x0,c.y0,c.zs[0]),p10=proj(c.x1,c.y0,c.zs[1]);
+    const p01=proj(c.x0,c.y1,c.zs[2]),p11=proj(c.x1,c.y1,c.zs[3]);
+    ctx.beginPath();ctx.moveTo(...p00);ctx.lineTo(...p10);ctx.lineTo(...p11);ctx.lineTo(...p01);ctx.closePath();
+    ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fill();
+    ctx.strokeStyle=isDark?'rgba(0,0,0,0.1)':'rgba(255,255,255,0.15)';ctx.lineWidth=0.2;ctx.stroke();
+  }
+}
+
+function draw(step){
+  const canvas=document.getElementById('cv');
+  const ctx=canvas.getContext('2d');
+  const W=640,H=380;
+  const isDark=matchMedia('(prefers-color-scheme: dark)').matches;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=isDark?'#1e1e1e':'#f5f5f3';
+  ctx.fillRect(0,0,W,H);
+
+  if(step===0){
+    drawFloorGrid(ctx,isDark);
+    drawAxes(ctx,isDark);
+    drawDots(ctx,isDark,7,true);
+  }
+  else if(step===1){
+    drawFloorGrid(ctx,isDark);
+    drawAxes(ctx,isDark);
+    drawYLines(ctx,isDark);
+    drawDots(ctx,isDark,6,false);
+  }
+  else if(step===2){
+    drawFloorGrid(ctx,isDark);
+    drawAxes(ctx,isDark);
+    drawYLines(ctx,isDark);
+    drawXLines(ctx,isDark);
+    drawDots(ctx,isDark,6,false);
+  }
+  else if(step===3){
+    drawFloorGrid(ctx,isDark);
+    drawAxes(ctx,isDark);
+    drawGridLines(ctx,isDark,12);
+    drawDots(ctx,isDark,5,false);
+    const isDk=isDark;
+    ctx.fillStyle=isDk?'#aaa':'#555';ctx.font='12px sans-serif';
+    ctx.fillText('격자(그물망) = 안장면의 뼈대',20,30);
+  }
+  else if(step===4){
+    drawAxes(ctx,isDark);
+    drawFilledSurface(ctx,isDark,10);
+    drawGridLines(ctx,isDark,10);
+    drawDots(ctx,isDark,5,false);
+  }
+  else{
+    drawFilledSurface(ctx,isDark,24);
+    drawAxes(ctx,isDark);
+    const red=isDark?'#E24B4A':'#A32D2D';
+    const pf=proj(2,3,0),pp=proj(2,3,6);
+    ctx.beginPath();ctx.moveTo(...pf);ctx.lineTo(...pp);
+    ctx.strokeStyle=red;ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(pp[0],pp[1],9,0,Math.PI*2);
+    ctx.fillStyle=red;ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle=red;ctx.font='bold 13px sans-serif';
+    ctx.fillText('(2, 3, 6)',pp[0]+12,pp[1]-8);
+    ctx.fillStyle=isDark?'#aaa':'#555';ctx.font='12px sans-serif';
+    ctx.fillText('점 하나하나가 모여 이 곡면이 됩니다',20,28);
+  }
+}
+
+document.getElementById('desc').innerHTML=descs[0];
+document.getElementById('ptable').innerHTML=ptables[0];
+draw(0);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>draw(cur));
+</script>
